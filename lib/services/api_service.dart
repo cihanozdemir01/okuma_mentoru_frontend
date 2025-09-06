@@ -4,27 +4,24 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:okuma_mentoru_mobil/models/kitap.dart';
 import 'package:okuma_mentoru_mobil/models/not.dart';
+import 'package:okuma_mentoru_mobil/models/home_screen_data.dart';
 
 class ApiService {
   // Android emülatöründen bilgisayarın localhost'una erişmek için '10.0.2.2' kullanılır.
   final String baseUrl = "http://10.0.2.2:8000/api";
 
   // Kitap listesini getiren metot
-  Future<List<Kitap>> getKitaplar() async {
-    // DOĞRU URL: 'baseUrl'in sonuna '/kitaplar/' ekliyoruz
+  Future<HomeScreenData> getHomeScreenData() async {
     final response = await http.get(Uri.parse('$baseUrl/kitaplar/'));
 
-    // Django API'miz, giriş yapmamış kullanıcılara izin vermediği için
-    // şimdilik bu kısımları eklemiyoruz. Sadece başarılı durumu kontrol edelim.
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-      return data.map((json) => Kitap.fromJson(json)).toList();
+      // Gelen JSON string'ini doğrudan HomeScreenData.fromJson'a gönder.
+      return HomeScreenData.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
-      // Hata durumunu daha anlaşılır hale getirelim.
-      print('Sunucudan gelen cevap: ${response.body}');
-      throw Exception('Kitaplar yüklenemedi. Hata kodu: ${response.statusCode}');
+      throw Exception('Ana ekran verileri yüklenemedi. Hata kodu: ${response.statusCode}');
     }
   }
+
 
   Future<Kitap> addKitap(String title, String author, int totalPages) async {
     final response = await http.post(
