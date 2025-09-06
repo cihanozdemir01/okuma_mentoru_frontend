@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:okuma_mentoru_mobil/models/kitap.dart';
+import 'package:okuma_mentoru_mobil/models/not.dart';
 
 class ApiService {
   // Android emülatöründen bilgisayarın localhost'una erişmek için '10.0.2.2' kullanılır.
@@ -94,6 +95,37 @@ class ApiService {
     if (response.statusCode != 200) {
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Kitap güncellenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+  // --- YENİ METOT: Bir Kitaba Ait Notları Getirme ---
+  Future<List<Not>> getNotlar(int kitapId) async {
+    final response = await http.get(Uri.parse('$baseUrl/kitaplar/$kitapId/notlar/'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Not.fromJson(json)).toList();
+    } else {
+      throw Exception('Notlar yüklenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+
+  // --- YENİ METOT: Bir Kitaba Yeni Not Ekleme ---
+  Future<Not> addNot(int kitapId, String icerik) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/kitaplar/$kitapId/notlar/'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(<String, dynamic>{
+        'icerik': icerik,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return Not.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      print('Sunucudan gelen cevap: ${response.body}');
+      throw Exception('Not eklenemedi. Hata kodu: ${response.statusCode}');
     }
   }
 }
