@@ -37,6 +37,7 @@ dependencies:
   http: ^1.5.0
   confetti: ^0.8.0
   intl: ^0.20.2
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -90,3 +91,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icon.png"
+  min_sd  k_android: 21      # android/app/build.gradle dosyasındaki minSdkVersion ile aynı olmalı
+
+  # Arka plan rengini belirliyoruz. #4527A0, koyu morun hex kodudur.
+  adaptive_icon_background: "#4527A0"
