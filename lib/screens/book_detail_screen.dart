@@ -88,27 +88,28 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 Future<void> _addNot() async {
     final icerik = _notEklemeController.text;
     if (icerik.isEmpty) {
-      // Form doğrulama için uyarı mesajı
       SnackBarHelper.showError(context, 'Not alanı boş bırakılamaz.');
       return;
     }
 
     try {
-      await apiService.addNot(widget.kitap.id, icerik);
+      // HATA DÜZELTMESİ: Burada eski 'addNot' yerine, api_service.dart dosyasındaki
+      // doğru ve tek metot olan 'addNotForBook'u çağırıyoruz.
+      await apiService.addNotForBook(widget.kitap.id, icerik);
+      
       _notEklemeController.clear();
-      // Klavyeyi gizle
       FocusScope.of(context).unfocus(); 
+      
       // Not listesini yenile
       setState(() {
         _notlarFuture = apiService.getNotlar(widget.kitap.id);
       });
-      // BAŞARI MESAJI
+      
       SnackBarHelper.showSuccess(context, 'Not başarıyla eklendi.');
     } catch (e) {
       print('Not eklenirken hata: $e');
       if (mounted) {
-        // HATA MESAJI
-        SnackBarHelper.showError(context, 'Not eklenirken bir hata oluştu.');
+        SnackBarHelper.showError(context, 'Not eklenirken bir hata oluştu. Sunucunuzun çalıştığından emin olun.');
       }
     }
   }
@@ -273,7 +274,7 @@ Future<void> _addNot() async {
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             child: ListTile(
                               title: Text(not.icerik),
-                              subtitle: Text('Eklendi: ${not.olusturmaTarihi}'),
+                              subtitle: Text('Eklendi: ${not.olusturmaTarihiFormatli}'),
                             ),
                           );
                         },

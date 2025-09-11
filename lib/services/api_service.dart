@@ -6,98 +6,90 @@ import 'package:okuma_mentoru_mobil/models/kitap.dart';
 import 'package:okuma_mentoru_mobil/models/not.dart';
 import 'package:okuma_mentoru_mobil/models/home_screen_data.dart';
 
+// YENİ MODEL: Aylık özet verisini tutmak için.
+// Bu sınıfı ya burada ya da kendi model dosyasında tanımlayabilirsin.
+class MonthlySummary {
+  final String month;
+  final int count;
+
+  MonthlySummary({required this.month, required this.count});
+
+  factory MonthlySummary.fromJson(Map<String, dynamic> json) {
+    return MonthlySummary(
+      month: json['month'] as String,
+      count: json['count'] as int,
+    );
+  }
+}
+
+
 class ApiService {
-  // Android emülatöründen bilgisayarın localhost'una erişmek için '10.0.2.2' kullanılır.
-  final String baseUrl = "http://10.0.2.2:8000/api";
+  // Geliştirme için lokal sunucuyu kullanıyoruz.
+  final String baseUrl = "http://10.0.2.2:8000";
 
-  // Kitap listesini getiren metot
+  // --- KİTAP İŞLEMLERİ ---
+
   Future<HomeScreenData> getHomeScreenData() async {
-    final response = await http.get(Uri.parse('$baseUrl/kitaplar/'));
-
+    final response = await http.get(Uri.parse('$baseUrl/api/kitaplar/'));
     if (response.statusCode == 200) {
-      // Gelen JSON string'ini doğrudan HomeScreenData.fromJson'a gönder.
       return HomeScreenData.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
       throw Exception('Ana ekran verileri yüklenemedi. Hata kodu: ${response.statusCode}');
     }
   }
 
-
   Future<Kitap> addKitap(String title, String author, int totalPages) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/kitaplar/'),
-      // Göndereceğimiz verinin JSON formatında olduğunu belirtiyoruz.
+      Uri.parse('$baseUrl/api/kitaplar/'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      // Dart Map'ini JSON string'ine çeviriyoruz.
       body: jsonEncode(<String, dynamic>{
         'title': title,
         'author': author,
         'total_pages': totalPages,
-        // Diğer alanlar Django tarafında varsayılan değerlere sahip olduğu için
-        // onları göndermemize gerek yok (current_page=0, status='okunuyor').
       }),
     );
-
-    // Eğer sunucu 201 Created (Başarıyla Oluşturuldu) cevabı dönerse...
     if (response.statusCode == 201) {
-      // Sunucudan dönen ve yeni oluşturulan kitabın verisini
-      // bir Kitap nesnesine çevirip geri döndür.
       return Kitap.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
-      // Hata durumunda, sunucudan gelen cevabı da yazdır.
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Kitap eklenemedi. Hata kodu: ${response.statusCode}');
     }
   }
 
-  // --- YENİ METOT: Kitap Silme (DELETE) ---
   Future<void> deleteKitap(int id) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/kitaplar/$id/'),
+      Uri.parse('$baseUrl/api/kitaplar/$id/'),
     );
-
-    // 204 No Content, başarılı silme işleminde sunucunun cevap vermesidir.
     if (response.statusCode != 204) {
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Kitap silinemedi. Hata kodu: ${response.statusCode}');
     }
-   }
+  }
 
-  // --- YENİ METOT: Kitap Güncelleme (PUT/PATCH) ---
   Future<void> updateKitap(int id, int currentPage, {String? status}) async {
-    // Gönderilecek olan JSON verisini bir Map olarak hazırlayalım.
-    final Map<String, dynamic> data = {
-      'current_page': currentPage,
-    };
-
-    // Eğer 'status' parametresi null değilse (yani gönderildiyse),
-    // onu da data Map'ine ekle.
+    final Map<String, dynamic> data = {'current_page': currentPage};
     if (status != null) {
       data['status'] = status;
     }
-
     final response = await http.patch(
-      // Django REST Framework'te tekil nesneler için URL /api/kitaplar/<id>/ şeklindedir.
-      Uri.parse('$baseUrl/kitaplar/$id/'),
+      Uri.parse('$baseUrl/api/kitaplar/$id/'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      // Hazırladığımız Map'i JSON'a çevirip body olarak gönder.
       body: jsonEncode(data),
     );
-
-    // 200 OK başarılı demektir.
     if (response.statusCode != 200) {
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Kitap güncellenemedi. Hata kodu: ${response.statusCode}');
     }
   }
-  // --- YENİ METOT: Bir Kitaba Ait Notları Getirme ---
-  Future<List<Not>> getNotlar(int kitapId) async {
-    final response = await http.get(Uri.parse('$baseUrl/kitaplar/$kitapId/notlar/'));
 
+  // --- NOT İŞLEMLERİ ---
+
+  Future<List<Not>> getNotlar(int kitapId) async {
+    final response = await http.get(Uri.parse('$baseUrl/api/kitaplar/$kitapId/notlar/'));
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => Not.fromJson(json)).toList();
@@ -106,23 +98,58 @@ class ApiService {
     }
   }
 
-  // --- YENİ METOT: Bir Kitaba Yeni Not Ekleme ---
-  Future<Not> addNot(int kitapId, String icerik) async {
+  Future<List<Not>> getAllNotes() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/notes/'));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Not.fromJson(json)).toList();
+    } else {
+      throw Exception('Tüm notlar yüklenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+
+  Future<Not> addNotForBook(int kitapId, String icerik) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/kitaplar/$kitapId/notlar/'),
+      Uri.parse('$baseUrl/api/kitaplar/$kitapId/notlar/'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode(<String, dynamic>{
+      body: jsonEncode(<String, String>{
         'icerik': icerik,
       }),
     );
-
     if (response.statusCode == 201) {
       return Not.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Not eklenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+
+  // --- İSTATİSTİK İŞLEMLERİ ---
+  
+  // YENİ METOT: Aylık özet verisini çekmek için
+  Future<List<MonthlySummary>> getMonthlySummary() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/stats/monthly-summary/'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      // Gelen her bir JSON nesnesini MonthlySummary modeline çevir
+      return data.map((json) => MonthlySummary.fromJson(json)).toList();
+    } else {
+      throw Exception('Aylık özet yüklenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+  // YENİ METOT: Heatmap verisini çekmek için
+  Future<Map<String, int>> getHeatmapData() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/stats/heatmap/'));
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      // Gelen verinin value'larını int'e çevir
+      return data.map((key, value) => MapEntry(key, value as int));
+    } else {
+      throw Exception('Heatmap verisi yüklenemedi.');
     }
   }
 }

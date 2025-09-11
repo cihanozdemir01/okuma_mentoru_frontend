@@ -20,6 +20,17 @@ class SnackBarHelper {
       Icons.error,           // Hata ikonu
     );
   }
+  
+  // YENİ METOT: Bilgilendirme mesajları için bunu ekle
+  static void showInfo(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        // Rengi istediğin gibi ayarlayabilirsin, genellikle mavi veya gri tonları kullanılır
+        backgroundColor: Colors.blueGrey,
+      ),
+    );
+  }
 
   // Metodun imzası artık bir ikon da alıyor.
   static void _showSnackBar(BuildContext context, String message, Color color, IconData icon) {
