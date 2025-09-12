@@ -5,8 +5,10 @@ class Kitap {
   final String title;
   final String author;
   final int totalPages;
-  final int currentPage;
-  final String status;
+  int currentPage;
+  String status;
+
+  final String? coverImageUrl;
 
   Kitap({
     required this.id,
@@ -15,6 +17,7 @@ class Kitap {
     required this.totalPages,
     required this.currentPage,
     required this.status,
+    this.coverImageUrl,
   });
 
   factory Kitap.fromJson(Map<String, dynamic> json) {
@@ -25,6 +28,7 @@ class Kitap {
       totalPages: json['total_pages'],
       currentPage: json['current_page'],
       status: json['status'],
+      coverImageUrl: json['cover_image_url'],
     );
   }
 }

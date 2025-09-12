@@ -22,6 +22,30 @@ class MonthlySummary {
   }
 }
 
+// YENİ MODEL: Google Books API'sinden gelen ve henüz veritabanına
+// kaydedilmemiş bir kitabın verisini tutmak için.
+class FoundBook {
+  final String title;
+  final String author;
+  final int totalPages;
+  final String? coverImageUrl;
+
+  FoundBook({
+    required this.title,
+    required this.author,
+    required this.totalPages,
+    this.coverImageUrl,
+  });
+
+  factory FoundBook.fromJson(Map<String, dynamic> json) {
+    return FoundBook(
+      title: json['title'] ?? '',
+      author: json['author'] ?? '',
+      totalPages: json['total_pages'] ?? 0,
+      coverImageUrl: json['cover_image_url'],
+    );
+  }
+}
 
 class ApiService {
   // Geliştirme için lokal sunucuyu kullanıyoruz.
@@ -83,6 +107,24 @@ class ApiService {
     if (response.statusCode != 200) {
       print('Sunucudan gelen cevap: ${response.body}');
       throw Exception('Kitap güncellenemedi. Hata kodu: ${response.statusCode}');
+    }
+  }
+
+  // YENİ METOT: ISBN ile kitap bilgilerini bulmak için.
+  Future<FoundBook?> findBookByIsbn(String isbn) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/find-book/?isbn=$isbn'));
+
+      if (response.statusCode == 200) {
+        return FoundBook.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      } else {
+        // 404 Not Found gibi durumlarda null dönecek.
+        print('Kitap bulunamadı veya bir hata oluştu: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('findBookByIsbn__metodunda hata: $e');
+      return null;
     }
   }
 

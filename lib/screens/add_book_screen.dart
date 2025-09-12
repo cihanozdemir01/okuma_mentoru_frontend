@@ -1,8 +1,9 @@
-// lib/screens/add_book_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:okuma_mentoru_mobil/services/api_service.dart';
 import 'package:okuma_mentoru_mobil/utils/snackbar_helper.dart';
+
+// YENİ: Barkod tarayıcı sayfasını import ediyoruz
+import 'package:okuma_mentoru_mobil/screens/barcode_scanner_screen.dart';
 
 class AddBookScreen extends StatefulWidget {
   const AddBookScreen({super.key});
@@ -12,30 +13,58 @@ class AddBookScreen extends StatefulWidget {
 }
 
 class _AddBookScreenState extends State<AddBookScreen> {
-  // --- YENİ EKLENEN ANAHTAR ---
-  // Form'un durumunu yönetmek ve doğrulamak için bir GlobalKey oluşturuyoruz.
   final _formKey = GlobalKey<FormState>();
-  // --- ANAHTARIN SONU ---
-
+  
   final ApiService apiService = ApiService();
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
   final _pagesController = TextEditingController();
 
-  // isLoading state'i ve _saveProgress metodu
   bool _isLoading = false;
 
+  // YENİ: Barkod tarama işlemini yöneten fonksiyon
+  Future<void> _scanBarcode() async {
+    // Tarayıcı ekranına git ve bir sonuç bekle
+    final String? barcode = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
+    );
+
+    // Eğer bir barkod (ISBN) döndüyse...
+    if (barcode != null && mounted) {
+      setState(() { _isLoading = true; }); // Yükleniyor animasyonunu başlat
+
+      try {
+        // API'den kitap bilgilerini ara
+        final FoundBook? foundBook = await apiService.findBookByIsbn(barcode);
+        
+        if (foundBook != null) {
+          // Kitap bulunduysa, form alanlarını doldur
+          _titleController.text = foundBook.title;
+          _authorController.text = foundBook.author;
+          _pagesController.text = foundBook.totalPages.toString();
+          SnackBarHelper.showSuccess(context, 'Kitap bilgileri bulundu!');
+        } else {
+          // Kitap bulunamadıysa kullanıcıyı bilgilendir
+          SnackBarHelper.showError(context, 'Bu ISBN ile bir kitap bulunamadı.');
+        }
+      } catch (e) {
+        SnackBarHelper.showError(context, 'Kitap aranırken bir hata oluştu.');
+      } finally {
+        if (mounted) {
+          setState(() { _isLoading = false; }); // Yükleniyor animasyonunu bitir
+        }
+      }
+    }
+  }
+
   Future<void> _saveProgress() async {
-    // 1. Formun geçerli olup olmadığını kontrol et.
     if (_formKey.currentState!.validate()) {
-      // Eğer geçerliyse, yüklenme durumunu başlat.
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() { _isLoading = true; });
 
       final title = _titleController.text;
       final author = _authorController.text;
-      final totalPages = int.parse(_pagesController.text); // int.parse yeterli, kontrolü validatör yapıyor.
+      final totalPages = int.parse(_pagesController.text);
 
       try {
         await apiService.addKitap(title, author, totalPages);
@@ -49,11 +78,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
           SnackBarHelper.showError(context, 'Kitap eklenirken bir hata oluştu.');
         }
       } finally {
-        // İşlem başarılı da olsa, hata da olsa yüklenme durumunu bitir.
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() { _isLoading = false; });
         }
       }
     }
@@ -72,24 +98,29 @@ class _AddBookScreenState extends State<AddBookScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Yeni Kitap Ekle'),
+        // YENİ: AppBar'a barkod tarama butonu ekliyoruz
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: _isLoading ? null : _scanBarcode, // Yükleniyorsa butonu pasif yap
+            tooltip: 'Barkod Tara',
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        // --- YENİ WIDGET: Form ---
         child: Form(
-          key: _formKey, // Form'u anahtarımızla ilişkilendiriyoruz.
-          child: ListView( // Column yerine ListView kullanarak klavye açıldığında taşmayı önlüyoruz.
+          key: _formKey,
+          child: ListView(
             children: [
-              // --- WIDGET GÜNCELLEMESİ: TextFormField ---
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(labelText: 'Kitap Başlığı'),
-                // Doğrulama kuralı
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Lütfen bir kitap başlığı girin.';
                   }
-                  return null; // null döndürmek, 'geçerli' demektir.
+                  return null;
                 },
               ),
               const SizedBox(height: 16),
@@ -122,8 +153,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                 },
               ),
               const SizedBox(height: 32),
-              // --- GÜNCELLENEN BUTON ---
-              // Yüklenme durumuna göre ya butonu ya da animasyonu gösteriyoruz.
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
