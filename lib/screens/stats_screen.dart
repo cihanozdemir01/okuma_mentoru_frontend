@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:okuma_mentoru_mobil/models/home_screen_data.dart';
 import 'package:okuma_mentoru_mobil/services/api_service.dart';
-import 'package:fl_chart/fl_chart.dart'; 
-import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:okuma_mentoru_mobil/utils/snackbar_helper.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -16,36 +14,31 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   final ApiService apiService = ApiService();
 
-  // Değişkenleri nullable (?) olarak tanımlıyoruz.
+  // Seçimleri tutan state'ler
+  String _selectedMetric = 'page_count'; // 'page_count' veya 'book_count'
+  String _selectedGroupBy = 'month';   // 'day', 'week', 'month'
+  
+  Future<List<SummaryData>>? summaryFuture;
   Future<IstatistiklerData>? statsFuture;
-  Future<List<MonthlySummary>>? summaryFuture;
-  Future<Map<DateTime, int>>? heatmapFuture;
 
   @override
   void initState() {
     super.initState();
-    // Veri yüklemeyi initState içinde başlatıyoruz.
     _loadData();
   }
 
-  // Bu metot, API isteklerini başlatır.
   void _loadData() {
-    statsFuture = apiService.getHomeScreenData().then((data) => data.istatistikler);
-    summaryFuture = apiService.getMonthlySummary();
-    heatmapFuture = apiService.getHeatmapData().then((data) {
-      print("--- HEATMAP VERİSİ GELDİ ---");
-      print(data);
-      print("--------------------------");
-      return data.map((key, value) => MapEntry(DateTime.parse(key), value));
+    setState(() {
+      statsFuture = apiService.getHomeScreenData().then((data) => data.istatistikler);
+      summaryFuture = apiService.getSummary(
+        metric: _selectedMetric,
+        groupBy: _selectedGroupBy,
+      );
     });
   }
 
-  // RefreshIndicator tarafından çağrılacak metot.
-  // setState kullanarak ekranın yeniden çizilmesini sağlar.
   Future<void> _handleRefresh() async {
-    setState(() {
-      _loadData();
-    });
+    _loadData();
   }
 
   @override
@@ -61,128 +54,206 @@ class _StatsScreenState extends State<StatsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // --- HEATMAP BÖLÜMÜ ---
-            const Text("Okuma Takvimi (Son 1 Yıl)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            FutureBuilder<Map<DateTime, int>>(
-              future: heatmapFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
-                } else if (snapshot.hasError) {
-                  return SizedBox(height: 160, child: Center(child: Text('Takvim verisi yüklenemedi: ${snapshot.error}')));
-                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                  return Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: HeatMapCalendar(
-                        datasets: snapshot.data,
-                        colorsets: const {
-                          1: Color(0xFFD8BFD8), 
-                          10: Color(0xFFC8A2C8),
-                          20: Color(0xFFB886B8),
-                          30: Color(0xFFA86AA8),
-                          50: Colors.deepPurple,
-                        },
-                        onClick: (date) {
-                          final count = snapshot.data![DateTime(date.year, date.month, date.day)] ?? 0;
-                          final formattedDate = DateFormat('d MMMM yyyy', 'tr_TR').format(date);
-                          SnackBarHelper.showInfo(context, '$formattedDate: $count sayfa okundu.');
-                        },
-                        monthFontSize: 14,
-                        weekTextColor: Colors.grey,
-                        defaultColor: Colors.grey.shade200,
-                        textColor: Colors.black,
-                      ),
-                    ),
-                  );
-                } else {
-                  return const SizedBox(
-                    height: 160,
-                    child: Center(
-                      child: Text("Okuma aktivitesi bulunamadı.", style: TextStyle(color: Colors.grey)),
-                    ),
-                  );
-                }
-              },
-            ),
-            const Divider(height: 40),
-
-            // --- AYLIK GRAFİK BÖLÜMÜ ---
-            const Text("Aylık Kitap Bitirme Grafiği", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            FutureBuilder<List<MonthlySummary>>(
-              future: summaryFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-                } else if (snapshot.hasError) {
-                  return SizedBox(height: 200, child: Center(child: Text('Grafik verisi yüklenemedi.')));
-                } else if (snapshot.hasData) {
-                  final bool hasDataToShow = snapshot.data!.any((d) => d.count > 0);
-                  if (!hasDataToShow) {
-                    return const SizedBox(
-                      height: 200,
-                      child: Center(
-                        child: Text("Bu yıl henüz hiç kitap bitirmemişsin.", style: TextStyle(color: Colors.grey)),
-                      ),
-                    );
-                  }
-                  return SizedBox(
-                    height: 200,
-                    child: _buildBarChart(snapshot.data!),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            const Divider(height: 40),
-
-            // --- GENEL İSTATİSTİKLER BÖLÜMÜ ---
+            // --- KONTROL PANELİ ---
+            _buildControlPanel(),
+            const SizedBox(height: 24),
+            
+            // --- DİNAMİK GRAFİK ---
+            _buildDynamicChart(),
+            
+            const Divider(height: 40, thickness: 1),
+            
+            // --- GENEL İSTATİSTİKLER ---
             const Text("Genel İstatistikler", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            FutureBuilder<IstatistiklerData>(
-              future: statsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('İstatistikler yüklenemedi.'));
-                } else if (snapshot.hasData) {
-                  final istatistikler = snapshot.data!;
-                  return Column(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.check_circle_outline,
-                        value: istatistikler.bitirilenKitapSayisi.toString(),
-                        label: "Toplam Bitirilen Kitap",
-                        color: Colors.green,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildStatCard(
-                        icon: Icons.menu_book_outlined,
-                        value: istatistikler.toplamOkunanSayfa.toString(),
-                        label: "Toplam Okunan Sayfa",
-                        color: Colors.blue,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildStatCard(
-                        icon: Icons.local_fire_department_outlined,
-                        value: istatistikler.gunlukSeri.toString(),
-                        label: "Günlük Okuma Serisi",
-                        color: Colors.orange,
-                      ),
-                    ],
-                  );
-                }
-                return const SizedBox.shrink();
+            _buildOverallStats(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlPanel() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            // Metrik Seçimi (Sayfa/Kitap)
+            SegmentedButton<String>(
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: Colors.deepPurple.shade100,
+                side: BorderSide(color: Colors.deepPurple.shade100),
+              ),
+              segments: const [
+                ButtonSegment(value: 'page_count', label: Text('Sayfa'), icon: Icon(Icons.pages_outlined)),
+                ButtonSegment(value: 'book_count', label: Text('Kitap'), icon: Icon(Icons.book_outlined)),
+              ],
+              selected: {_selectedMetric},
+              onSelectionChanged: (newSelection) {
+                setState(() {
+                  _selectedMetric = newSelection.first;
+                  _loadData();
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            // Zaman Aralığı Seçimi (Gün/Hafta/Ay)
+            SegmentedButton<String>(
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: Colors.deepPurple.shade100,
+                side: BorderSide(color: Colors.deepPurple.shade100),
+              ),
+              segments: const [
+                ButtonSegment(value: 'day', label: Text('Günlük')),
+                ButtonSegment(value: 'week', label: Text('Haftalık')),
+                ButtonSegment(value: 'month', label: Text('Aylık')),
+              ],
+              selected: {_selectedGroupBy},
+              onSelectionChanged: (newSelection) {
+                setState(() {
+                  _selectedGroupBy = newSelection.first;
+                  _loadData();
+                });
               },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDynamicChart() {
+    return FutureBuilder<List<SummaryData>>(
+      future: summaryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 250, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return SizedBox(height: 250, child: Center(child: Text("Grafik verisi yüklenemedi.")));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox(height: 250, child: Center(child: Text("Bu periyotta gösterilecek veri yok.")));
+        }
+        
+        final data = snapshot.data!;
+        double maxY = 0;
+        if (data.isNotEmpty) {
+          maxY = data.map((d) => d.value).reduce((a, b) => a > b ? a : b).toDouble();
+        }
+        if (maxY == 0) maxY = 5;
+
+        return SizedBox(
+          height: 250,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxY * 1.2, // Çubuğun üstünde biraz boşluk bırak
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => Colors.deepPurple,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final item = data[group.x.toInt()];
+                    String periodText;
+                    if (_selectedGroupBy == 'day') {
+                      periodText = DateFormat('d MMMM yyyy', 'tr_TR').format(item.period);
+                    } else if (_selectedGroupBy == 'week') {
+                      periodText = "${DateFormat('d MMM', 'tr_TR').format(item.period)} Haftası";
+                    } else {
+                      periodText = DateFormat('MMMM yyyy', 'tr_TR').format(item.period);
+                    }
+                    String valueText = _selectedMetric == 'page_count' ? "${rod.toY.toInt()} Sayfa" : "${rod.toY.toInt()} Kitap";
+                    return BarTooltipItem('$periodText\n$valueText', const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
+                  },
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (double value, TitleMeta meta) {
+                      if (value.toInt() >= data.length) return const SizedBox.shrink();
+                      final item = data[value.toInt()];
+                      String text;
+                      if (_selectedGroupBy == 'day') {
+                        text = DateFormat('d', 'tr_TR').format(item.period);
+                      } else if (_selectedGroupBy == 'week') {
+                        text = DateFormat('d/M', 'tr_TR').format(item.period);
+                      } else {
+                        text = DateFormat('MMM', 'tr_TR').format(item.period);
+                      }
+                      return Padding(padding: const EdgeInsets.only(top: 6.0), child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)));
+                    },
+                    reservedSize: 30,
+                  ),
+                ),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(show: false),
+              barGroups: data.asMap().entries.map((entry) {
+                return BarChartGroupData(
+                  x: entry.key,
+                  barRods: [
+                    BarChartRodData(
+                      toY: entry.value.value.toDouble(),
+                      gradient: LinearGradient(
+                        colors: _selectedMetric == 'page_count'
+                          ? [Colors.lightBlue, Colors.blueAccent]
+                          : [Colors.lightGreen, Colors.green],
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                      width: 16,
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverallStats() {
+    return FutureBuilder<IstatistiklerData>(
+      future: statsFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        final istatistikler = snapshot.data!;
+        return Column(
+          children: [
+            _buildStatCard(
+              icon: Icons.check_circle_outline,
+              value: istatistikler.bitirilenKitapSayisi.toString(),
+              label: "Toplam Bitirilen Kitap",
+              color: Colors.green,
+            ),
+            const SizedBox(height: 16),
+            _buildStatCard(
+              icon: Icons.menu_book_outlined,
+              value: istatistikler.toplamOkunanSayfa.toString(),
+              label: "Toplam Okunan Sayfa",
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 16),
+            _buildStatCard(
+              icon: Icons.local_fire_department_outlined,
+              value: istatistikler.gunlukSeri.toString(),
+              label: "Günlük Okuma Serisi",
+              color: Colors.orange,
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -216,71 +287,6 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBarChart(List<MonthlySummary> data) {
-    double maxY = data.map((d) => d.count).reduce((a, b) => a > b ? a : b).toDouble();
-    if (maxY == 0) maxY = 5;
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY + 1,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => Colors.deepPurple,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              String month = data[group.x.toInt()].month;
-              String count = rod.toY.toInt().toString();
-              return BarTooltipItem(
-                '$month\n$count Kitap',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                final String monthName = data[value.toInt()].month;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 6.0),
-                  child: Text(monthName.substring(0, 1), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                );
-              },
-              reservedSize: 30,
-            ),
-          ),
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: false),
-        barGroups: data.asMap().entries.map((entry) {
-          int index = entry.key;
-          MonthlySummary summary = entry.value;
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: summary.count.toDouble(),
-                gradient: LinearGradient(
-                  colors: [Colors.purple, Colors.deepPurple.shade300],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-                borderRadius: BorderRadius.circular(4),
-                width: 16,
-              ),
-            ],
-          );
-        }).toList(),
       ),
     );
   }

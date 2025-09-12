@@ -7,7 +7,7 @@ import 'package:okuma_mentoru_mobil/models/home_screen_data.dart';
 import 'package:okuma_mentoru_mobil/screens/add_book_screen.dart';
 import 'package:okuma_mentoru_mobil/services/api_service.dart';
 import 'package:okuma_mentoru_mobil/screens/currently_reading_screen.dart';
-import 'package:okuma_mentoru_mobil/screens/finished_books_screen.dart'; // Bu import'u ekle
+import 'package:okuma_mentoru_mobil/screens/library_screen.dart'; // Bu import'u ekle
 import 'package:okuma_mentoru_mobil/screens/notes_hub_screen.dart';
 import 'package:okuma_mentoru_mobil/screens/stats_screen.dart'; 
 
@@ -205,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _navigateToScreen(const CurrentlyReadingScreen());
           } 
           else if (title == "Kütüphanem") {
-            _navigateToScreen(const FinishedBooksScreen());
+            _navigateToScreen(const LibraryScreen());
           } 
           else if (title == "Notlarım") {
             _navigateToScreen(const NotesHubScreen());

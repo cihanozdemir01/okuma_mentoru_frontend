@@ -1,6 +1,5 @@
 // lib/screens/book_detail_screen.dart
 
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:okuma_mentoru_mobil/models/kitap.dart';
 import 'package:okuma_mentoru_mobil/models/not.dart';
@@ -8,6 +7,8 @@ import 'package:okuma_mentoru_mobil/services/api_service.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math';
 import 'package:okuma_mentoru_mobil/utils/snackbar_helper.dart';
+import 'package:okuma_mentoru_mobil/screens/edit_book_screen.dart';
+
 
 
 class BookDetailScreen extends StatefulWidget {
@@ -43,6 +44,21 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     _confettiController.dispose();
     _notEklemeController.dispose();
     super.dispose();
+  }
+
+  // YENİ METOT: Düzenleme ekranını açar
+  void _navigateToEditScreen() async {
+    // Düzenleme ekranına git ve geri bir sonuç döndürüp döndürmediğini bekle
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditBookScreen(kitap: widget.kitap)),
+    );
+
+    // Eğer düzenleme ekranı 'true' sonucuyla döndüyse (yani bir değişiklik yapıldıysa),
+    // bu detay sayfasını da yenilemek için geri dön.
+    if (result == true && mounted) {
+      Navigator.pop(context, true); // Bir önceki listeleme ekranına 'yenile' sinyali gönder
+    }
   }
 
   void _showDeleteConfirmationDialog() {
@@ -128,7 +144,7 @@ Future<void> _addNot() async {
         isFinished = true;
       }
       
-      await apiService.updateKitap(widget.kitap.id, sayfaToSave, status: newStatus);
+      await apiService.updateKitap(widget.kitap.id, currentPage: sayfaToSave, status: newStatus);
 
       if (isFinished) {
         _confettiController.play();
@@ -145,25 +161,38 @@ Future<void> _addNot() async {
       }
     }
   }
-
+   Future<void> _startReading() async {
+    try {
+      // Kitabın durumunu 'okunuyor' olarak güncellemek için API'yi çağır
+      // 'currentPage' 0 olarak kalacak, sadece status değişecek
+      await apiService.updateKitap(widget.kitap.id, currentPage: _guncelSayfa, status: 'okunuyor');
+      
+      if (mounted) {
+        SnackBarHelper.showSuccess(context, 'Okuma serüvenin başladı!');
+        // Sayfanın durumunu anında güncelle ve bir önceki sayfaya dön
+        Navigator.pop(context, true); // Geri dönerken 'yenile' sinyali gönder
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.showError(context, 'Kitap güncellenirken bir hata oluştu.');
+      }
+    }
+  }
   // --- _buildProgressTracker ---
   // İlerleme kaydetme bölümünü (Slider, butonlar) oluşturan yardımcı metot
-  Widget _buildProgressTracker() {
-    // Eğer kitap 'bitti' durumundaysa...
-    if (_guncelStatus == 'bitti') {
-      return Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 30),
-            SizedBox(width: 12),
-            Text('Bu kitabı bitirdin, harika!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
+   Widget _buildProgressTracker() {
+    // YENİ: Eğer kitap 'beklemede' durumundaysa...
+    if (_guncelStatus == 'beklemede') {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.play_circle_fill_outlined),
+          label: const Text('Okumaya Başla'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            textStyle: const TextStyle(fontSize: 18),
+          ),
+          onPressed: _startReading,
         ),
       );
     }
@@ -209,8 +238,14 @@ Future<void> _addNot() async {
       appBar: AppBar(
         title: Text(widget.kitap.title),
         actions: [
+          // YENİ DÜZENLEME BUTONU
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: _navigateToEditScreen,
+            tooltip: 'Kitabı Düzenle',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
             onPressed: _showDeleteConfirmationDialog,
             tooltip: 'Kitabı Sil',
           ),
