@@ -10,6 +10,7 @@ import 'package:okuma_mentoru_mobil/screens/currently_reading_screen.dart';
 import 'package:okuma_mentoru_mobil/screens/library_screen.dart'; // Bu import'u ekle
 import 'package:okuma_mentoru_mobil/screens/notes_hub_screen.dart';
 import 'package:okuma_mentoru_mobil/screens/stats_screen.dart'; 
+import 'package:okuma_mentoru_mobil/screens/character_selection_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -200,7 +201,8 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
       child: InkWell(
         onTap: () {
-          // Yönlendirmeler artık _navigateToScreen fonksiyonunu kullanıyor
+          // GÜNCELLEME: "Sohbet" için yeni bir 'else if' bloğu ekliyoruz.
+          
           if (title == "Okuduklarım") {
             _navigateToScreen(const CurrentlyReadingScreen());
           } 
@@ -211,8 +213,16 @@ class _HomeScreenState extends State<HomeScreen> {
             _navigateToScreen(const NotesHubScreen());
           } 
           else if (title == "Haritam") {
-          _navigateToScreen(const StatsScreen());
-          } 
+            _navigateToScreen(const StatsScreen());
+          }
+          // YENİ ELSE IF BLOĞU:
+          else if (title == "Sohbet") {
+            // _navigateToScreen kullanmıyoruz çünkü bu sayfanın yenilenmesine gerek yok
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CharacterSelectionScreen()),
+            );
+          }
           else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('$title tıklandı! Bu sayfa yakında gelecek.')),

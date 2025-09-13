@@ -252,4 +252,32 @@ class ApiService {
       throw Exception('Özet verisi yüklenemedi. Hata: ${response.body}');
     }
   }
+
+  // --- YAPAY ZEKA SOHBET İŞLEMLERİ ---
+
+  Future<String> getCharacterResponse({
+    required String kitapAdi,
+    required String karakterAdi,
+    required String kullaniciSorusu,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/character-chat/'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(<String, String>{
+        'kitap_adi': kitapAdi,
+        'karakter_adi': karakterAdi,
+        'kullanici_sorusu': kullaniciSorusu,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      return data['cevap'] ?? "Bir cevap alınamadı.";
+    } else {
+      final Map<String, dynamic> errorData = json.decode(utf8.decode(response.bodyBytes));
+      throw Exception('Yapay zeka ile iletişimde hata: ${errorData['error']}');
+    }
+  }
 }
