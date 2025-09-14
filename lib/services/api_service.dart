@@ -45,7 +45,7 @@ class FoundBook {
 }
 
 class ApiService {
-  final String baseUrl = "http://10.0.2.2:8000";
+  final String baseUrl = "https://okuma-mentoru-api.onrender.com";
 
   // --- KİTAP İŞLEMLERİ ---
 

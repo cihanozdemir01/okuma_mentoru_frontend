@@ -37,7 +37,6 @@ dependencies:
   http: ^1.5.0
   confetti: ^0.8.0
   intl: ^0.20.2
-  flutter_launcher_icons: ^0.14.4
   shared_preferences: ^2.2.3
   fl_chart: ^0.68.0
   flutter_heatmap_calendar: ^1.0.5 
@@ -54,6 +53,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
