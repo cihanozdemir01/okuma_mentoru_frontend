@@ -10,6 +10,7 @@ class CharacterSelectionScreen extends StatelessWidget {
     {'kitap': 'Yabancı', 'karakter': 'Meursault'},
     {'kitap': 'Don Kişot', 'karakter': 'Don Kişot'},
     {'kitap': 'Harry Potter', 'karakter': 'Albus Dumbledore'},
+    {'kitap': 'Şeytan Ayrıntıda Gizlidir', 'karakter': 'Başkomiser Nevzat'}
   ];
 
   @override
